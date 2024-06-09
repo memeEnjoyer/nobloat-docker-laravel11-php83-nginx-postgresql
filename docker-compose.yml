@@ -1,0 +1,54 @@
+version: "2.27"
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  app:
+    container_name: app
+    build:
+      context: ./infra/app
+      dockerfile: Dockerfile
+    image: php-laravel-11
+    restart: unless-stopped
+    tty: true
+    working_dir: /var/www
+    volumes:
+      - ./laravel:/var/www
+    networks:
+      - app-network
+
+  postgresql:
+    container_name: pgsql
+    build:
+      context: ./infra/pgsql
+      dockerfile: Dockerfile
+    image: postgres
+    restart: unless-stopped
+    expose:
+      - "5432"
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./infra/pgsql/script:/docker-entrypoint-initdb.d
+      - ./infra/pgsql/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_MULTIPLE_DATABASES=main_db
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:1.27.0-alpine
+    container_name: nginx
+    restart: unless-stopped
+    tty: true
+    ports:
+      - 80:80
+    volumes:
+      - ./laravel:/var/www
+      - ./infra/nginx/conf:/etc/nginx/conf.d
+    networks:
+      - app-network
